@@ -2,8 +2,10 @@
 #include <stdio.h>
 #include <thread>
 #include <iostream>
+#include <fstream>
 #include "windows.h"
 #include <vector>
+using namespace std;
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 Present oPresent;
@@ -16,11 +18,8 @@ HANDLE Handle_Of_runTas = 0;
 
 bool isOpen = false;
 
-int jump = 0;
-int left = 0;
-int right = 0;
-
 std::vector<int> tasInputs;
+std::vector<int> tasInputs2;
 std::vector<const char*> fakeTasInputs;
 std::vector<int> tasInputsTime;
 
@@ -28,26 +27,40 @@ void AddNewInput(int input, int length) {
 	switch (input) {
 		case 1:
 			tasInputs.push_back(0x57);
+			tasInputs2.push_back(0);
 			fakeTasInputs.push_back("JUMP");
 			tasInputsTime.push_back(length);
 			break;
 		case 2:
 			tasInputs.push_back(0x41);
+			tasInputs2.push_back(0);
 			fakeTasInputs.push_back("LEFT");
 			tasInputsTime.push_back(length);
 			break;
 		case 3:
 			tasInputs.push_back(0x44);
+			tasInputs2.push_back(0);
 			fakeTasInputs.push_back("RIGHT");
 			tasInputsTime.push_back(length);
 			break;
 		case 4:
 			tasInputs.pop_back();
+			tasInputs2.pop_back();
 			fakeTasInputs.pop_back();
 			tasInputsTime.pop_back();
 			break;
 		case 5:
-
+			tasInputs.push_back(0x41);
+			tasInputs2.push_back(0x57);
+			fakeTasInputs.push_back("LEFT JUMP");
+			tasInputsTime.push_back(length);
+			break;
+		case 6:
+			tasInputs.push_back(0x44);
+			tasInputs2.push_back(0x57);
+			fakeTasInputs.push_back("RIGHT JUMP");
+			tasInputsTime.push_back(length);
+			break;
 	}
 }
 
@@ -73,6 +86,17 @@ LRESULT __stdcall WndProc(const HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 DWORD WINAPI runTas(LPVOID lpParam)
 {
 	for (int i = 0; i < tasInputs.size(); i++) {
+		INPUT ip2;
+
+		// if (tasInputs2[i] > 0)
+		ip2.type = INPUT_KEYBOARD;
+		ip2.ki.wScan = 0;
+		ip2.ki.time = 0;
+		ip2.ki.dwExtraInfo = 0;
+
+		ip2.ki.wVk = tasInputs2[i];
+		ip2.ki.dwFlags = 0;
+
 		INPUT ip;
 
 		ip.type = INPUT_KEYBOARD;
@@ -83,16 +107,46 @@ DWORD WINAPI runTas(LPVOID lpParam)
 		ip.ki.wVk = tasInputs[i];
 		ip.ki.dwFlags = 0;
 		SendInput(1, &ip, sizeof(INPUT));
+		if (tasInputs2[i] > 0)
+			SendInput(1, &ip2, sizeof(INPUT));
 		
 		Sleep(tasInputsTime[i]);
 
 		ip.ki.dwFlags = KEYEVENTF_KEYUP;
 		SendInput(1, &ip, sizeof(INPUT));
+
+		if (tasInputs2[i] > 0) {
+			ip2.ki.dwFlags = KEYEVENTF_KEYUP;
+			SendInput(1, &ip2, sizeof(INPUT));
+		}
 	}
 	
 	CloseHandle(Handle_Of_runTas);
 
 	return 0;
+}
+
+void saveInputs() {
+	fstream tasFile;
+	tasFile.open("inputs.txt", ios::out);
+	if (!tasFile) {
+
+	}
+	else {
+		for (int i = 0; i < tasInputs.size(); i++)
+		{
+			tasFile << tasInputs[i] + "\n";
+			tasFile << tasInputs2[i] + "\n";
+			tasFile << tasInputsTime[i] + "\n";
+			tasFile << fakeTasInputs[i] + '\n';
+		}
+
+		tasFile.close();
+	}
+}
+
+void loadInputs() {
+
 }
 
 bool init = false;
@@ -135,14 +189,18 @@ HRESULT __stdcall hkPresent(IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT 
 	ImGui::NewFrame();
 
 	if (isOpen) {
-		ImGui::Begin("TAS Editor");
+		ImGui::Begin("TAS Editor", &isOpen, ImGuiWindowFlags_MenuBar);
 
 		if (ImGui::BeginMenuBar())
 		{
 			if (ImGui::BeginMenu("File"))
 			{
-				if (ImGui::MenuItem("Open..", "Ctrl+O")) { /* open and load tas file */ }
-				if (ImGui::MenuItem("Save", "Ctrl+S")) { /* save tas file */ }
+				if (ImGui::MenuItem("Open..", "Ctrl+O")) {
+					loadInputs();
+				}
+				if (ImGui::MenuItem("Save", "Ctrl+S")) {
+					saveInputs();
+				}
 				ImGui::EndMenu();
 			}
 			ImGui::EndMenuBar();
@@ -166,7 +224,12 @@ HRESULT __stdcall hkPresent(IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT 
 		if (ImGui::Button("Press Right")) {
 			AddNewInput(3, length);
 		}
-
+		if (ImGui::Button("Jump Right")) {
+			AddNewInput(6, length);
+		}
+		if (ImGui::Button("Jump Left")) {
+			AddNewInput(5, length);
+		}
 		if (ImGui::Button("Remove Last Input")) {
 			AddNewInput(4, 0);
 		}
