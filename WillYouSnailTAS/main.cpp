@@ -184,12 +184,31 @@ HRESULT __stdcall hkPresent(IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT 
 			return oPresent(pSwapChain, SyncInterval, Flags);
 	}
 
+	static ImGuiIO& ioImgui = ImGui::GetIO();
+
+	static bool imguiHasCursorPrev = true;
+	bool imguiHasCursor = ioImgui.WantCaptureMouse || ioImgui.WantCaptureKeyboard;
+
+	if (imguiHasCursor != imguiHasCursorPrev)
+	{
+		if (imguiHasCursor)
+		{
+			ioImgui.ConfigFlags &= !ImGuiConfigFlags_NoMouseCursorChange;
+		}
+		else
+		{
+			ioImgui.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+			// window.setMouseCursor(cursorDefault);
+		}
+		imguiHasCursorPrev = imguiHasCursor;
+	}
+
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
 	if (isOpen) {
-		ImGui::Begin("TAS Editor", &isOpen, ImGuiWindowFlags_MenuBar);
+		ImGui::Begin("TAS Editor", &isOpen, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_AlwaysAutoResize);
 
 		if (ImGui::BeginMenuBar())
 		{
