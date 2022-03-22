@@ -184,6 +184,16 @@ HRESULT __stdcall hkPresent(IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT 
 			return oPresent(pSwapChain, SyncInterval, Flags);
 	}
 
+	RECT rect;
+
+	GetWindowRect(window, &rect);
+
+	int width = rect.right - rect.left;
+	int height = rect.bottom - rect.top;
+
+	ImGuiIO& io = ImGui::GetIO();
+	io.DisplaySize = ImVec2(width, height);
+
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
